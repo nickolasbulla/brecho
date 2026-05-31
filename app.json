@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "brecho",
+    "name": "Brechó",
     "slug": "brecho",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,11 +17,15 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.nickolasbulla.brecho"
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single-page",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -32,6 +36,13 @@
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O app precisa acessar sua galeria para adicionar fotos aos anúncios."
         }
       ]
     ],

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /s /b)",
+      "Bash(findstr /V \"node_modules\")",
+      "Bash(npx tsc *)",
+      "Bash(npm install *)",
+      "Bash(npx expo *)",
+      "Bash(node -e \"const p=require\\('./node_modules/expo-router/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(gh auth *)",
+      "PowerShell(gh auth status)",
+      "PowerShell(adb devices)"
+    ]
+  }
+}
