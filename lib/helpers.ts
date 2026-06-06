@@ -41,20 +41,3 @@ export function getInitials(name: string): string {
     .toUpperCase();
 }
 
-// Formata número de telefone para o padrão internacional do WhatsApp (55 + DDD + número)
-export function formatPhoneForWhatsApp(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  // Já tem DDI 55 → usa como está
-  if (digits.startsWith('55') && digits.length >= 12) return digits;
-  // Sem DDI → adiciona 55 (Brasil)
-  return `55${digits}`;
-}
-
-// Monta URL do WhatsApp com mensagem pré-preenchida
-export function whatsAppUrl(phone: string, productTitle: string): string {
-  const number = formatPhoneForWhatsApp(phone);
-  const text = encodeURIComponent(
-    `Olá! Vi seu anúncio "${productTitle}" no Brechó e tenho interesse. Ainda está disponível?`
-  );
-  return `https://wa.me/${number}?text=${text}`;
-}

@@ -48,8 +48,7 @@ export default function LoginScreen() {
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.logoBox}>
             <Text style={styles.logo}>🛍️</Text>
-            <Text style={styles.brand}>Brechó</Text>
-            <Text style={styles.tagline}>tropa do react</Text>
+            <Text style={styles.brand}>E-Buy</Text>
           </View>
 
           <View style={styles.card}>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image, TouchableOpacity,
-  ActivityIndicator, Linking, useWindowDimensions,
+  ActivityIndicator, Modal, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -10,8 +10,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { getProduct } from '@/hooks/useProducts';
 import { supabase, Product } from '@/lib/supabase';
 import { useToast } from '@/components/Toast';
-import { formatPrice, conditionColor, timeAgo, getInitials, whatsAppUrl } from '@/lib/helpers';
+import { formatPrice, conditionColor, timeAgo, getInitials } from '@/lib/helpers';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
+
+const COMMISSION_RATE = 0.05;
 
 export default function ProductDetailScreen() {
   const { width } = useWindowDimensions();
@@ -23,9 +25,10 @@ export default function ProductDetailScreen() {
   const [isFavorited, setIsFavorited] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const [markingAsSold, setMarkingAsSold] = useState(false);
-  const [featuringProduct, setFeaturingProduct] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState(false);
+  const [showBuyModal, setShowBuyModal] = useState(false);
+  const [buying, setBuying] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -86,25 +89,6 @@ export default function ProductDetailScreen() {
     }
   }
 
-  async function handleToggleFeatured() {
-    if (!user || !product) return;
-    setFeaturingProduct(true);
-    const isActive = !!product.featured_until && new Date(product.featured_until) > new Date();
-    const newValue = isActive ? null : new Date(Date.now() + 3_600_000).toISOString();
-    const { error } = await supabase
-      .from('products')
-      .update({ featured_until: newValue })
-      .eq('id', product.id)
-      .eq('seller_id', user.id);
-    setFeaturingProduct(false);
-    if (!error) {
-      setProduct((prev) => prev ? { ...prev, featured_until: newValue } : prev);
-      showToast(newValue ? '⭐ Anúncio em destaque por 1 hora!' : 'Destaque removido.', 'success');
-    } else {
-      showToast('Erro ao alterar destaque.', 'error');
-    }
-  }
-
   async function handleMarkAsAvailable() {
     if (!user || !product) return;
     const { error } = await supabase
@@ -118,12 +102,35 @@ export default function ProductDetailScreen() {
     }
   }
 
-  function handleContact() {
-    if (!product?.profiles?.phone) return;
-    const url = whatsAppUrl(product.profiles.phone, product.title);
-    Linking.openURL(url).catch(() => {
-      showToast('Não foi possível abrir o WhatsApp.', 'error');
+  async function handleBuy() {
+    if (!user) { router.push('/(auth)/login'); return; }
+    if (!product) return;
+    setBuying(true);
+    const commission_amount = parseFloat((product.price * COMMISSION_RATE).toFixed(2));
+    const seller_amount = parseFloat((product.price - commission_amount).toFixed(2));
+
+    const { error: orderError } = await supabase.from('orders').insert({
+      product_id: product.id,
+      buyer_id: user.id,
+      seller_id: product.seller_id,
+      product_title: product.title,
+      product_price: product.price,
+      commission_rate: COMMISSION_RATE,
+      commission_amount,
+      seller_amount,
     });
+
+    if (orderError) {
+      showToast('Erro ao processar compra. Tente novamente.', 'error');
+      setBuying(false);
+      return;
+    }
+
+    await supabase.from('products').update({ status: 'sold' }).eq('id', product.id);
+    setProduct((prev) => prev ? { ...prev, status: 'sold' } : prev);
+    setBuying(false);
+    setShowBuyModal(false);
+    showToast('Compra realizada com sucesso!', 'success');
   }
 
   if (loading) return <ActivityIndicator color={Colors.primary} style={{ flex: 1, marginTop: 80 }} size="large" />;
@@ -139,9 +146,6 @@ export default function ProductDetailScreen() {
   const images = product.images?.length > 0 ? product.images : [];
   const seller = product.profiles;
   const isSeller = product.seller_id === user?.id;
-  const sellerPhone = seller?.phone ?? null;
-  const isPremiumSeller = isSeller && seller?.is_premium === true;
-  const isActiveFeatured = !!product.featured_until && new Date(product.featured_until) > new Date();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
@@ -247,18 +251,7 @@ export default function ProductDetailScreen() {
                 <Text style={styles.sellerLabel}>Vendedor</Text>
                 <View style={styles.sellerNameRow}>
                   <Text style={styles.sellerName}>{seller.name}</Text>
-                  {seller.is_premium && (
-                    <View style={styles.premiumBadge}>
-                      <Ionicons name="star" size={10} color="#F59E0B" />
-                      <Text style={styles.premiumBadgeText}>Premium</Text>
-                    </View>
-                  )}
                 </View>
-                {sellerPhone && !isSeller && (
-                  <Text style={styles.sellerPhone}>
-                    <Ionicons name="logo-whatsapp" size={12} color={Colors.whatsapp} /> {sellerPhone}
-                  </Text>
-                )}
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
             </TouchableOpacity>
@@ -285,25 +278,6 @@ export default function ProductDetailScreen() {
         ) : isSeller ? (
           // Vendedor vendo o próprio produto
           <View style={styles.row}>
-            {/* Botão de destaque — só para Premium */}
-            {isPremiumSeller && (
-              <TouchableOpacity
-                style={[styles.featuredBtn, isActiveFeatured && styles.featuredBtnActive]}
-                onPress={handleToggleFeatured}
-                disabled={featuringProduct}
-              >
-                {featuringProduct ? (
-                  <ActivityIndicator color={isActiveFeatured ? '#92400E' : Colors.textSecondary} size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="star" size={18} color={isActiveFeatured ? '#D97706' : Colors.textSecondary} />
-                    <Text style={[styles.featuredBtnText, isActiveFeatured && styles.featuredBtnTextActive]}>
-                      {isActiveFeatured ? 'Em destaque' : 'Destacar 1h'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
             <TouchableOpacity
               style={[styles.actionBtn, styles.markSoldBtn, { flex: 1 }]}
               onPress={handleMarkAsSold}
@@ -319,18 +293,15 @@ export default function ProductDetailScreen() {
               )}
             </TouchableOpacity>
           </View>
-        ) : sellerPhone ? (
-          // Comprador com contato disponível
-          <TouchableOpacity style={[styles.actionBtn, styles.contactBtn]} onPress={handleContact}>
-            <Ionicons name="logo-whatsapp" size={22} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.actionBtnText}>Contatar via WhatsApp</Text>
-          </TouchableOpacity>
         ) : (
-          // Sem contato cadastrado
-          <View style={styles.noContactBox}>
-            <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.textMuted} />
-            <Text style={styles.noContactText}>Vendedor não cadastrou contato</Text>
-          </View>
+          // Comprador — botão de compra
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.buyBtn]}
+            onPress={() => user ? setShowBuyModal(true) : router.push('/(auth)/login')}
+          >
+            <Ionicons name="bag-handle-outline" size={22} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.actionBtnText}>Comprar agora</Text>
+          </TouchableOpacity>
         )}
 
         {/* Excluir anúncio — só para o vendedor */}
@@ -365,6 +336,59 @@ export default function ProductDetailScreen() {
           )
         )}
       </View>
+      {/* Modal de confirmação de compra */}
+      <Modal visible={showBuyModal} transparent animationType="slide" onRequestClose={() => setShowBuyModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Confirmar compra</Text>
+            <Text style={styles.modalProductName} numberOfLines={2}>{product?.title}</Text>
+
+            <View style={styles.breakdown}>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Preço do produto</Text>
+                <Text style={styles.breakdownValue}>{formatPrice(product?.price ?? 0)}</Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Taxa do app ({(COMMISSION_RATE * 100).toFixed(0)}%)</Text>
+                <Text style={styles.breakdownFee}>{formatPrice((product?.price ?? 0) * COMMISSION_RATE)}</Text>
+              </View>
+              <View style={styles.breakdownDivider} />
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Vendedor recebe</Text>
+                <Text style={styles.breakdownValue}>{formatPrice((product?.price ?? 0) * (1 - COMMISSION_RATE))}</Text>
+              </View>
+              <View style={[styles.breakdownRow, styles.totalRow]}>
+                <Text style={styles.totalLabel}>Você paga</Text>
+                <Text style={styles.totalValue}>{formatPrice(product?.price ?? 0)}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.modalNote}>
+              Simulação acadêmica — nenhuma cobrança real é efetuada.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowBuyModal(false)}
+                disabled={buying}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={handleBuy}
+                disabled={buying}
+              >
+                {buying
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.modalConfirmText}>Confirmar</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -427,13 +451,6 @@ const styles = StyleSheet.create({
   sellerLabel: { fontSize: 11, color: Colors.textMuted },
   sellerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   sellerName: { fontSize: 15, fontWeight: '700', color: Colors.text },
-  premiumBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: '#FEF3C7', borderRadius: 99,
-    paddingHorizontal: 7, paddingVertical: 2,
-  },
-  premiumBadgeText: { fontSize: 10, fontWeight: '700', color: '#92400E' },
-  sellerPhone: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
   // Footer
   footer: {
     padding: Spacing.md,
@@ -454,7 +471,7 @@ const styles = StyleSheet.create({
   // Botão "Produto vendido": fundo claro + texto escuro (cinza não contrasta com branco)
   soldBtn: { backgroundColor: '#F1F5F9' },
   soldBtnText: { color: Colors.sold, fontSize: 16, fontWeight: '700' },
-  contactBtn: { backgroundColor: Colors.whatsapp },
+  buyBtn: { backgroundColor: Colors.primary },
   markSoldBtn: { backgroundColor: Colors.primary },
   btnInner: { flexDirection: 'row', alignItems: 'center' },
   secondaryBtn: {
@@ -466,39 +483,62 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryBtnText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
-  featuredBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 2,
-    borderColor: Colors.border,
+  // Modal de compra
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    padding: Spacing.lg,
+    ...Shadow.modal,
+  },
+  modalTitle: {
+    fontSize: 18, fontWeight: '800', color: Colors.text,
+    marginBottom: Spacing.xs,
+  },
+  modalProductName: {
+    fontSize: 14, color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+  },
+  breakdown: {
+    backgroundColor: Colors.background,
     borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownLabel: { fontSize: 14, color: Colors.textSecondary },
+  breakdownValue: { fontSize: 14, fontWeight: '600', color: Colors.text },
+  breakdownFee: { fontSize: 14, fontWeight: '600', color: Colors.primary },
+  breakdownDivider: { height: 1, backgroundColor: Colors.border },
+  totalRow: { marginTop: 2 },
+  totalLabel: { fontSize: 16, fontWeight: '800', color: Colors.text },
+  totalValue: { fontSize: 18, fontWeight: '900', color: Colors.primary },
+  modalNote: {
+    fontSize: 11, color: Colors.textMuted,
+    textAlign: 'center', marginBottom: Spacing.lg,
+  },
+  modalActions: { flexDirection: 'row', gap: Spacing.sm },
+  modalCancelBtn: {
+    flex: 1, borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center',
     backgroundColor: Colors.surface,
   },
-  featuredBtnActive: {
-    borderColor: '#F59E0B',
-    backgroundColor: '#FFFBEB',
+  modalCancelText: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary },
+  modalConfirmBtn: {
+    flex: 2, backgroundColor: Colors.primary,
+    borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center',
   },
-  featuredBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-  },
-  featuredBtnTextActive: {
-    color: '#92400E',
-  },
-  noContactBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.md,
-    backgroundColor: Colors.border,
-    borderRadius: Radius.md,
-  },
-  noContactText: { fontSize: 14, color: Colors.textMuted, fontWeight: '500' },
+  modalConfirmText: { fontSize: 15, fontWeight: '800', color: '#fff' },
   deleteLink: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 5, marginTop: Spacing.sm, paddingVertical: 4,

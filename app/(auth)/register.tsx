@@ -13,7 +13,6 @@ export default function RegisterScreen() {
   const { signUp } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -30,7 +29,7 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await signUp(email.trim(), password, name.trim(), phone.trim() || undefined);
+      await signUp(email.trim(), password, name.trim());
       // Tenta ir direto pro app (funciona se confirmação de e-mail estiver desativada no Supabase)
       setSuccess('Conta criada! Entrando...');
       setTimeout(() => router.replace('/(tabs)'), 800);
@@ -58,7 +57,7 @@ export default function RegisterScreen() {
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.logoBox}>
             <Text style={styles.logo}>🛍️</Text>
-            <Text style={styles.brand}>Brechó</Text>
+            <Text style={styles.brand}>E-Buy</Text>
           </View>
 
           <View style={styles.card}>
@@ -89,21 +88,6 @@ export default function RegisterScreen() {
               value={name}
               onChangeText={(v) => { setName(v); setError(''); }}
             />
-
-            <Text style={styles.label}>
-              WhatsApp <Text style={styles.hint}>(para compradores te contatar)</Text>
-            </Text>
-            <View style={styles.phoneRow}>
-              <Ionicons name="logo-whatsapp" size={18} color={Colors.whatsapp} style={styles.phoneIcon} />
-              <TextInput
-                style={[styles.input, styles.phoneInput]}
-                placeholder="Ex: 11999999999"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={(v) => { setPhone(v); setError(''); }}
-              />
-            </View>
 
             <Text style={styles.label}>E-mail</Text>
             <TextInput
@@ -215,9 +199,6 @@ const styles = StyleSheet.create({
   successText: { flex: 1, fontSize: 13, color: Colors.success, fontWeight: '500' },
   label: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginBottom: 6, marginTop: Spacing.sm },
   hint: { color: Colors.textMuted, fontWeight: '400' },
-  phoneRow: { flexDirection: 'row', alignItems: 'center' },
-  phoneIcon: { marginRight: 8, marginTop: 1 },
-  phoneInput: { flex: 1 },
   input: {
     borderWidth: 1.5,
     borderColor: Colors.border,

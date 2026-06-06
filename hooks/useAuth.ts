@@ -27,11 +27,11 @@ export function useAuth() {
     if (error) throw error;
   }
 
-  async function signUp(email: string, password: string, name: string, phone?: string) {
+  async function signUp(email: string, password: string, name: string) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, phone: phone || null } },
+      options: { data: { name } },
     });
     if (error) throw error;
   }

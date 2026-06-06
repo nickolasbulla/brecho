@@ -63,8 +63,7 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.brand}>🛍️ Brechó</Text>
-          <Text style={styles.subtitle}>tropa do react</Text>
+          <Text style={styles.brand}>E-Buy</Text>
         </View>
       </View>
 

@@ -28,8 +28,6 @@ export type Profile = {
   bio: string | null;
   avatar_url: string | null;
   location: string | null;
-  phone: string | null;
-  is_premium: boolean;
   created_at: string;
 };
 
@@ -48,7 +46,6 @@ export type Product = {
   category_id: number | null;
   condition: 'Novo' | 'Seminovo' | 'Usado' | 'Muito usado';
   images: string[];
-  featured_until: string | null;
   status: 'available' | 'sold';
   created_at: string;
   profiles?: Profile;
@@ -61,4 +58,18 @@ export type Favorite = {
   product_id: string;
   created_at: string;
   products?: Product;
+};
+
+export type Order = {
+  id: string;
+  product_id: string | null;
+  buyer_id: string | null;
+  seller_id: string | null;
+  product_title: string;
+  product_price: number;
+  commission_rate: number;
+  commission_amount: number;
+  seller_amount: number;
+  status: 'completed' | 'cancelled';
+  created_at: string;
 };

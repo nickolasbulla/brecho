@@ -10,17 +10,18 @@ import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { supabase, Product } from '@/lib/supabase';
+import { supabase, Product, Order } from '@/lib/supabase';
 import ProductCard from '@/components/ProductCard';
 import EmptyState from '@/components/EmptyState';
 import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
-import { getInitials } from '@/lib/helpers';
+import { getInitials, formatPrice, timeAgo } from '@/lib/helpers';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { showToast } = useToast();
   const { profile, loading, updateProfile, refetch: refetchProfile } = useProfile(user?.id);
   const [listings, setListings] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [profileError, setProfileError] = useState('');
@@ -28,17 +29,16 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editLocation, setEditLocation] = useState('');
-  const [editPhone, setEditPhone] = useState('');
 
   const loadData = useCallback(async () => {
     if (!user) return;
     setDataLoading(true);
-    const { data } = await supabase
-      .from('products')
-      .select('*')
-      .eq('seller_id', user.id)
-      .order('created_at', { ascending: false });
-    if (data) setListings(data);
+    const [{ data: listingsData }, { data: ordersData }] = await Promise.all([
+      supabase.from('products').select('*').eq('seller_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('orders').select('*').eq('buyer_id', user.id).order('created_at', { ascending: false }),
+    ]);
+    if (listingsData) setListings(listingsData);
+    if (ordersData) setOrders(ordersData);
     setDataLoading(false);
   }, [user]);
 
@@ -47,7 +47,7 @@ export default function ProfileScreen() {
 async function handleSaveProfile() {
     setProfileError('');
     try {
-      await updateProfile({ name: editName, bio: editBio, location: editLocation, phone: editPhone || null });
+      await updateProfile({ name: editName, bio: editBio, location: editLocation });
       setEditing(false);
       showToast('Perfil salvo!', 'success');
     } catch {
@@ -129,17 +129,6 @@ async function handleSaveProfile() {
                 placeholder="Cidade"
                 placeholderTextColor={Colors.textMuted}
               />
-              <View style={styles.phoneInputRow}>
-                <Ionicons name="logo-whatsapp" size={16} color={Colors.whatsapp} style={{ marginRight: 6 }} />
-                <TextInput
-                  style={[styles.editInput, { flex: 1 }]}
-                  value={editPhone}
-                  onChangeText={setEditPhone}
-                  placeholder="WhatsApp (ex: 11999999999)"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="phone-pad"
-                />
-              </View>
               <View style={styles.editActions}>
                 <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
                   <Text style={styles.saveBtnText}>Salvar</Text>
@@ -151,25 +140,11 @@ async function handleSaveProfile() {
             </View>
           ) : (
             <View style={styles.userInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.userName}>{profile?.name}</Text>
-                {profile?.is_premium && (
-                  <View style={styles.premiumBadge}>
-                    <Ionicons name="star" size={11} color="#F59E0B" />
-                    <Text style={styles.premiumBadgeText}>Premium</Text>
-                  </View>
-                )}
-              </View>
+              <Text style={styles.userName}>{profile?.name}</Text>
               {profile?.location && (
                 <View style={styles.infoRow}>
                   <Ionicons name="location-outline" size={13} color={Colors.textSecondary} />
                   <Text style={styles.infoText}>{profile.location}</Text>
-                </View>
-              )}
-              {profile?.phone && (
-                <View style={styles.infoRow}>
-                  <Ionicons name="logo-whatsapp" size={13} color={Colors.whatsapp} />
-                  <Text style={styles.infoText}>{profile.phone}</Text>
                 </View>
               )}
               {profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
@@ -179,7 +154,6 @@ async function handleSaveProfile() {
                   setEditName(profile?.name ?? '');
                   setEditBio(profile?.bio ?? '');
                   setEditLocation(profile?.location ?? '');
-                  setEditPhone(profile?.phone ?? '');
                   setEditing(true);
                 }}
               >
@@ -193,26 +167,6 @@ async function handleSaveProfile() {
             <Ionicons name="log-out-outline" size={22} color={Colors.error} />
           </TouchableOpacity>
         </View>
-
-        {/* Aviso se não tiver telefone cadastrado */}
-        {!profile?.phone && !editing && (
-          <TouchableOpacity
-            style={styles.phoneWarning}
-            onPress={() => {
-              setEditName(profile?.name ?? '');
-              setEditBio(profile?.bio ?? '');
-              setEditLocation(profile?.location ?? '');
-              setEditPhone('');
-              setEditing(true);
-            }}
-          >
-            <Ionicons name="logo-whatsapp" size={16} color={Colors.whatsapp} />
-            <Text style={styles.phoneWarningText}>
-              Adicione seu WhatsApp para que compradores possam te contatar
-            </Text>
-            <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
-          </TouchableOpacity>
-        )}
 
         {/* Banner de erro ao salvar perfil */}
         {profileError !== '' && (
@@ -258,22 +212,6 @@ async function handleSaveProfile() {
           </View>
         </View>
 
-        {/* Banner de upgrade — só pra usuários não-premium */}
-        {!profile?.is_premium && (
-          <TouchableOpacity style={styles.upgradeCard} onPress={() => router.push('/premium')}>
-            <View style={styles.upgradeLeft}>
-              <Text style={styles.upgradeEmoji}>⭐</Text>
-              <View>
-                <Text style={styles.upgradeTitle}>Assine o Premium</Text>
-                <Text style={styles.upgradeSub}>Anúncios ilimitados + Destaque no feed</Text>
-              </View>
-            </View>
-            <View style={styles.upgradeBtn}>
-              <Text style={styles.upgradeBtnText}>R$ 14,90/mês</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
         {/* Meus anúncios */}
         <Text style={styles.sectionTitle}>Meus Anúncios</Text>
 
@@ -285,6 +223,33 @@ async function handleSaveProfile() {
           <View style={styles.grid}>
             {listings.map((item) => (
               <ProductCard key={item.id} product={item} />
+            ))}
+          </View>
+        )}
+
+        {/* Histórico de compras */}
+        <Text style={styles.sectionTitle}>Minhas Compras</Text>
+
+        {dataLoading ? (
+          <ActivityIndicator color={Colors.primary} style={{ marginTop: 8, marginBottom: Spacing.lg }} />
+        ) : orders.length === 0 ? (
+          <EmptyState emoji="🛍️" title="Nenhuma compra ainda" subtitle="Explore o feed e compre algo!" />
+        ) : (
+          <View style={styles.ordersList}>
+            {orders.map((order) => (
+              <View key={order.id} style={styles.orderCard}>
+                <View style={styles.orderIconWrap}>
+                  <Ionicons name="bag-handle-outline" size={22} color={Colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.orderTitle} numberOfLines={1}>{order.product_title}</Text>
+                  <Text style={styles.orderDate}>{timeAgo(order.created_at)}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.orderPrice}>{formatPrice(order.product_price)}</Text>
+                  <Text style={styles.orderFee}>Taxa: {formatPrice(order.commission_amount)}</Text>
+                </View>
+              </View>
             ))}
           </View>
         )}
@@ -332,7 +297,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm, paddingVertical: 6, fontSize: 14, color: Colors.text,
     backgroundColor: Colors.background,
   },
-  phoneInputRow: { flexDirection: 'row', alignItems: 'center' },
   editActions: { flexDirection: 'row', gap: Spacing.sm },
   saveBtn: {
     flex: 1, backgroundColor: Colors.primary, borderRadius: Radius.sm,
@@ -344,17 +308,6 @@ const styles = StyleSheet.create({
     padding: 8, alignItems: 'center',
   },
   cancelBtnText: { color: Colors.textSecondary, fontSize: 13 },
-  phoneWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: '#F0FDF4',
-    borderBottomWidth: 1,
-    borderBottomColor: '#BBF7D0',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-  },
-  phoneWarningText: { flex: 1, fontSize: 13, color: '#166534', fontWeight: '500' },
   stats: {
     flexDirection: 'row',
     backgroundColor: Colors.surface,
@@ -410,28 +363,28 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm, padding: 10, alignItems: 'center',
   },
   logoutBannerConfirmText: { fontSize: 13, fontWeight: '700', color: '#fff' },
-  // Premium badge no nome
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  premiumBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: '#FEF3C7', borderRadius: Radius.full,
-    paddingHorizontal: 8, paddingVertical: 3,
+  // Histórico de compras
+  ordersList: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.lg,
+    gap: Spacing.sm,
   },
-  premiumBadgeText: { fontSize: 11, fontWeight: '700', color: '#92400E' },
-  // Banner de upgrade
-  upgradeCard: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginHorizontal: Spacing.md, marginBottom: Spacing.md,
-    backgroundColor: Colors.primary, borderRadius: Radius.lg,
-    padding: Spacing.md, ...Shadow.card,
+  orderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    ...Shadow.card,
   },
-  upgradeLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
-  upgradeEmoji: { fontSize: 24 },
-  upgradeTitle: { fontSize: 14, fontWeight: '800', color: '#fff' },
-  upgradeSub: { fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 1 },
-  upgradeBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: Radius.md,
-    paddingHorizontal: Spacing.sm, paddingVertical: 6,
+  orderIconWrap: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center', justifyContent: 'center',
   },
-  upgradeBtnText: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  orderTitle: { fontSize: 14, fontWeight: '700', color: Colors.text },
+  orderDate: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
+  orderPrice: { fontSize: 15, fontWeight: '800', color: Colors.primary },
+  orderFee: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
 });

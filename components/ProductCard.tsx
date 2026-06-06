@@ -18,12 +18,10 @@ export default function ProductCard({ product, isFavorited, onToggleFavorite }: 
   const IMAGE_HEIGHT = CARD_WIDTH * 1.15; // proporção retangular (tipo fashion app)
 
   const mainImage = product.images?.[0];
-  const isActiveFeatured =
-    !!product.featured_until && new Date(product.featured_until) > new Date();
 
   return (
     <TouchableOpacity
-      style={[styles.card, { width: CARD_WIDTH }, isActiveFeatured && styles.featuredCard]}
+      style={[styles.card, { width: CARD_WIDTH }]}
       onPress={() => router.push(`/product/${product.id}`)}
       activeOpacity={0.9}
     >
@@ -38,12 +36,6 @@ export default function ProductCard({ product, isFavorited, onToggleFavorite }: 
         ) : (
           <View style={styles.imagePlaceholder}>
             <Text style={{ fontSize: 28 }}>🛍️</Text>
-          </View>
-        )}
-
-        {isActiveFeatured && product.status === 'available' && (
-          <View style={styles.featuredBadge}>
-            <Text style={styles.featuredText}>⭐ DESTAQUE</Text>
           </View>
         )}
 
@@ -90,10 +82,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Shadow.card,
   },
-  featuredCard: {
-    borderWidth: 2,
-    borderColor: '#F59E0B',
-  },
   imageContainer: {
     position: 'relative',
     width: '100%',
@@ -110,16 +98,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  featuredBadge: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    backgroundColor: '#F59E0B',
-    borderRadius: Radius.sm,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-  },
-  featuredText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   soldBadge: {
     position: 'absolute',
     top: 6,

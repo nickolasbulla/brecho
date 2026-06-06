@@ -44,7 +44,6 @@ export default function RootLayout() {
         <Stack.Screen name="product/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="product/edit/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="seller/[id]" options={{ presentation: 'card' }} />
-        <Stack.Screen name="premium" options={{ presentation: 'modal' }} />
       </Stack>
     </ToastProvider>
     </SafeAreaProvider>

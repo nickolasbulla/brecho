@@ -101,7 +101,26 @@ create trigger on_auth_user_created
 -- 7. (removido) — Função buy_product não é mais necessária.
 --    O vendedor atualiza o status diretamente via RLS ("Vendedor edita produto").
 
--- 8. Storage bucket para imagens de produtos
+-- 8. Pedidos (compras simuladas)
+create table if not exists public.orders (
+  id uuid default gen_random_uuid() primary key,
+  product_id uuid references public.products on delete set null,
+  buyer_id uuid references public.profiles on delete set null,
+  seller_id uuid references public.profiles on delete set null,
+  product_title text not null,
+  product_price numeric(10,2) not null,
+  commission_rate numeric(4,2) not null default 0.05,
+  commission_amount numeric(10,2) not null,
+  seller_amount numeric(10,2) not null,
+  status text default 'completed' check (status in ('completed','cancelled')),
+  created_at timestamptz default now()
+);
+alter table public.orders enable row level security;
+create policy "Comprador vê suas compras" on public.orders for select using (auth.uid() = buyer_id);
+create policy "Vendedor vê suas vendas" on public.orders for select using (auth.uid() = seller_id);
+create policy "Comprador registra compra" on public.orders for insert with check (auth.uid() = buyer_id);
+
+-- 9. Storage bucket para imagens de produtos
 -- Vá em Storage > New bucket > nome: "product-images" > marque "Public bucket"
 -- Depois adicione esta policy no bucket:
 -- Policy name: "Upload autenticado"
