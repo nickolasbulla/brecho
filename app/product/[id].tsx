@@ -16,7 +16,8 @@ import { Colors, Spacing, Radius, Shadow } from '@/constants/theme';
 const COMMISSION_RATE = 0.05;
 
 export default function ProductDetailScreen() {
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const width = Math.min(windowWidth, 430);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { showToast } = useToast();

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import {
   View, Text, TextInput, FlatList, StyleSheet,
-  TouchableOpacity, ActivityIndicator, ScrollView,
+  TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -94,7 +94,7 @@ export default function SearchScreen() {
       {showFilters && (
         <View style={styles.filtersBox}>
           <Text style={styles.filterLabel}>Condição</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6, marginBottom: 12 }}>
+          <View style={styles.chipsRow}>
             <CategoryChip label="Todas" selected={condition === null} onPress={() => setCondition(null)} />
             {CONDITIONS.map((c) => (
               <CategoryChip
@@ -102,7 +102,7 @@ export default function SearchScreen() {
                 onPress={() => setCondition(c === condition ? null : c)}
               />
             ))}
-          </ScrollView>
+          </View>
 
           <Text style={styles.filterLabel}>Faixa de preço</Text>
           <View style={styles.priceRow}>
@@ -203,6 +203,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   filterLabel: { fontSize: 13, fontWeight: '700', color: Colors.text },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: 6, marginBottom: 12 },
   list: { paddingHorizontal: Spacing.md, paddingBottom: 20 },
   row: { justifyContent: 'space-between' },
   priceRow: {

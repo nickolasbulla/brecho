@@ -13,7 +13,8 @@ interface Props {
 }
 
 export default function ProductCard({ product, isFavorited, onToggleFavorite }: Props) {
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const width = Math.min(windowWidth, 430);
   const CARD_WIDTH = (width - Spacing.md * 2 - Spacing.sm) / 2;
   const IMAGE_HEIGHT = CARD_WIDTH * 1.15; // proporção retangular (tipo fashion app)
 

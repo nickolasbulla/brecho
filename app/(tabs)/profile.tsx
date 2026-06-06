@@ -221,8 +221,14 @@ async function handleSaveProfile() {
           <EmptyState emoji="📦" title="Nenhum anúncio" subtitle="Toque em Vender para publicar" />
         ) : (
           <View style={styles.grid}>
-            {listings.map((item) => (
-              <ProductCard key={item.id} product={item} />
+            {Array.from({ length: Math.ceil(listings.length / 2) }).map((_, rowIdx) => (
+              <View key={rowIdx} style={styles.gridRow}>
+                <ProductCard product={listings[rowIdx * 2]} />
+                {listings[rowIdx * 2 + 1]
+                  ? <ProductCard product={listings[rowIdx * 2 + 1]} />
+                  : <View style={styles.gridSpacer} />
+                }
+              </View>
             ))}
           </View>
         )}
@@ -324,13 +330,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm,
   },
   grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     paddingHorizontal: Spacing.md,
-    gap: Spacing.sm,
     paddingBottom: Spacing.md,
-    justifyContent: 'space-between',
   },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
+  gridSpacer: { flex: 1 },
   loginBtn: {
     margin: Spacing.lg,
     backgroundColor: Colors.primary,
