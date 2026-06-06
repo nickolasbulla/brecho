@@ -107,29 +107,21 @@ export default function ProductDetailScreen() {
     if (!user) { router.push('/(auth)/login'); return; }
     if (!product) return;
     setBuying(true);
-    const commission_amount = parseFloat((product.price * COMMISSION_RATE).toFixed(2));
-    const seller_amount = parseFloat((product.price - commission_amount).toFixed(2));
 
-    const { error: orderError } = await supabase.from('orders').insert({
-      product_id: product.id,
-      buyer_id: user.id,
-      seller_id: product.seller_id,
-      product_title: product.title,
-      product_price: product.price,
-      commission_rate: COMMISSION_RATE,
-      commission_amount,
-      seller_amount,
+    const { data, error } = await supabase.rpc('complete_purchase', {
+      p_product_id: product.id,
+      p_buyer_id: user.id,
+      p_commission_rate: COMMISSION_RATE,
     });
 
-    if (orderError) {
-      showToast('Erro ao processar compra. Tente novamente.', 'error');
-      setBuying(false);
+    setBuying(false);
+
+    if (error || data?.error) {
+      showToast(data?.error ?? 'Erro ao processar compra. Tente novamente.', 'error');
       return;
     }
 
-    await supabase.from('products').update({ status: 'sold' }).eq('id', product.id);
     setProduct((prev) => prev ? { ...prev, status: 'sold' } : prev);
-    setBuying(false);
     setShowBuyModal(false);
     showToast('Compra realizada com sucesso!', 'success');
   }
@@ -351,22 +343,18 @@ export default function ProductDetailScreen() {
               </View>
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Taxa do app ({(COMMISSION_RATE * 100).toFixed(0)}%)</Text>
-                <Text style={styles.breakdownFee}>{formatPrice((product?.price ?? 0) * COMMISSION_RATE)}</Text>
+                <Text style={styles.breakdownFee}>+ {formatPrice((product?.price ?? 0) * COMMISSION_RATE)}</Text>
               </View>
               <View style={styles.breakdownDivider} />
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Vendedor recebe</Text>
-                <Text style={styles.breakdownValue}>{formatPrice((product?.price ?? 0) * (1 - COMMISSION_RATE))}</Text>
+                <Text style={styles.breakdownValue}>{formatPrice(product?.price ?? 0)}</Text>
               </View>
               <View style={[styles.breakdownRow, styles.totalRow]}>
                 <Text style={styles.totalLabel}>Você paga</Text>
-                <Text style={styles.totalValue}>{formatPrice(product?.price ?? 0)}</Text>
+                <Text style={styles.totalValue}>{formatPrice((product?.price ?? 0) * (1 + COMMISSION_RATE))}</Text>
               </View>
             </View>
-
-            <Text style={styles.modalNote}>
-              Simulação acadêmica — nenhuma cobrança real é efetuada.
-            </Text>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
