@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Image,
+  View, Text, StyleSheet, FlatList, Image,
   TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -53,6 +53,57 @@ export default function SellerProfileScreen() {
     );
   }
 
+  const ListHeader = (
+    <>
+      {/* Card do vendedor */}
+      <View style={styles.card}>
+        <View style={styles.avatarWrap}>
+          {seller.avatar_url ? (
+            <Image source={{ uri: seller.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.initials}>{getInitials(seller.name)}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.nameRow}>
+          <Text style={styles.name}>{seller.name}</Text>
+        </View>
+
+        {seller.location && (
+          <View style={styles.infoRow}>
+            <Ionicons name="location-outline" size={14} color={Colors.textSecondary} />
+            <Text style={styles.infoText}>{seller.location}</Text>
+          </View>
+        )}
+
+        {seller.bio && (
+          <Text style={styles.bio}>{seller.bio}</Text>
+        )}
+
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statNum}>{listings.length}</Text>
+            <Text style={styles.statLabel}>Disponíveis</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}>
+            <Text style={styles.statNum}>
+              {new Date(seller.created_at).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
+            </Text>
+            <Text style={styles.statLabel}>Membro desde</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Título da seção */}
+      <Text style={styles.sectionTitle}>
+        Anúncios de {seller.name.split(' ')[0]}
+      </Text>
+    </>
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header fixo */}
@@ -64,66 +115,16 @@ export default function SellerProfileScreen() {
         <View style={{ width: 38 }} />
       </View>
 
-      <ScrollView>
-        {/* Card do vendedor */}
-        <View style={styles.card}>
-          {/* Avatar */}
-          <View style={styles.avatarWrap}>
-            {seller.avatar_url ? (
-              <Image source={{ uri: seller.avatar_url }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.initials}>{getInitials(seller.name)}</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>{seller.name}</Text>
-          </View>
-
-          {seller.location && (
-            <View style={styles.infoRow}>
-              <Ionicons name="location-outline" size={14} color={Colors.textSecondary} />
-              <Text style={styles.infoText}>{seller.location}</Text>
-            </View>
-          )}
-
-          {seller.bio && (
-            <Text style={styles.bio}>{seller.bio}</Text>
-          )}
-
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNum}>{listings.length}</Text>
-              <Text style={styles.statLabel}>Disponíveis</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Text style={styles.statNum}>
-                {new Date(seller.created_at).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
-              </Text>
-              <Text style={styles.statLabel}>Membro desde</Text>
-            </View>
-          </View>
-
-        </View>
-
-        {/* Anúncios do vendedor */}
-        <Text style={styles.sectionTitle}>
-          Anúncios de {seller.name.split(' ')[0]}
-        </Text>
-
-        {listings.length === 0 ? (
-          <EmptyState emoji="📦" title="Nenhum anúncio ativo" subtitle="Este vendedor não tem produtos disponíveis" />
-        ) : (
-          <View style={styles.grid}>
-            {listings.map((item) => (
-              <ProductCard key={item.id} product={item} />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+      <FlatList
+        data={listings}
+        renderItem={({ item }) => <ProductCard product={item} />}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={<EmptyState emoji="📦" title="Nenhum anúncio ativo" subtitle="Este vendedor não tem produtos disponíveis" />}
+      />
     </SafeAreaView>
   );
 }
@@ -188,12 +189,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.sm,
-    paddingBottom: Spacing.xl,
-    justifyContent: 'space-between',
-  },
+  list: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xl },
+  row: { justifyContent: 'space-between' },
 });
